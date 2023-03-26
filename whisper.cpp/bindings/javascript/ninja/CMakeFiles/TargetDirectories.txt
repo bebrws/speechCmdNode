@@ -1,0 +1,3 @@
+/Users/bbarrows/repos/whisper.cpp/bindings/javascript/ninja/CMakeFiles/libwhisper.dir
+/Users/bbarrows/repos/whisper.cpp/bindings/javascript/ninja/CMakeFiles/edit_cache.dir
+/Users/bbarrows/repos/whisper.cpp/bindings/javascript/ninja/CMakeFiles/rebuild_cache.dir
