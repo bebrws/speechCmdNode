@@ -98,7 +98,7 @@ public:
         params.model = "/Users/bbarrows/repos/speechCmdNode/whisper.cpp/models/ggml-base.en.bin";
 
         // struct whisper_context *ctx = whisper_init_from_file(params.model.c_str());
-        struct whisper_context *ctx = whisper_init_from_file(params.model.c_str());
+        this->ctx = whisper_init_from_file(params.model.c_str());
 
         // const ExecutionProgress &progress = this->progress;
 
@@ -230,7 +230,7 @@ public:
 
                 printf("before whisper full\n");
 
-                if (whisper_full(ctx, wparams, pcmf32.data(), pcmf32.size()) != 0)
+                if (whisper_full(this->ctx, wparams, pcmf32.data(), pcmf32.size()) != 0)
                 {
                     fprintf(stderr, "failed to process audio\n");
                     return;
@@ -249,11 +249,11 @@ public:
                     printf("\n");
                     // }
 
-                    const int n_segments = whisper_full_n_segments(ctx);
+                    const int n_segments = whisper_full_n_segments(this->ctx);
                     printf("After full ng segments\n");
                     for (int i = 0; i < n_segments; ++i)
                     {
-                        const char *text = whisper_full_get_segment_text(ctx, i);
+                        const char *text = whisper_full_get_segment_text(this->ctx, i);
                         printf("before progress: %s\n", text);
                         if (text)
                         {
@@ -280,7 +280,7 @@ public:
         printf("\nDetached thread\n");
 
         // whisper_print_timings(ctx);
-        // whisper_free(this.ctx);
+        // whisper_free(this->ctx);
 
         // return Napi::Boolean::New(Env(), true);
     }
@@ -291,19 +291,23 @@ public:
         // Pass error onto JS, no data for other parameters
         Callback().Call({String::New(Env(), e.Message())});
 
-        // whisper_free(this.ctx);
+        whisper_free(this->ctx);
     }
     void OnOK() override
     {
         HandleScope scope(Env());
         // Pass no error, give back original data
+        printf("In On OK");
         Callback().Call({Env().Null(), String::New(Env(), "DONE in OnOK")});
 
         // whisper_print_timings(ctx);
-        // whisper_free(this.ctx);
+        whisper_free(this->ctx);
+
+        this->tsfnToEnd.Release();
     }
     void OnProgress(const char *data, size_t count) override
     {
+        printf("In Progress");
         HandleScope scope(Env());
         // Pass no error, no echo data, but do pass on the progress data
         // Callback().Call({Env().Null(), Env().Null(), Number::New(Env(), *data)});
@@ -311,6 +315,7 @@ public:
     }
 
 private:
+    struct whisper_context *ctx;
     Napi::ThreadSafeFunction tsfnToEnd;
 };
 
