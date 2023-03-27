@@ -11,7 +11,7 @@ const { promisify } = require("util");
 const whisperParams = {
     language: "en",
     model: path.join(__dirname, "whisper.cpp/models/ggml-base.en.bin"),
-    fname_inp: "./hello.wav",
+    // fname_inp: "./hello.wav",
 };
 
 // const arguments = process.argv.slice(2);
@@ -32,7 +32,7 @@ const whisperParams = {
 
 console.log("whisperParams =", whisperParams);
 
-addon.startTask((str) => {
+addon.startTask(whisperParams, (str) => {
     console.log(str);
 });
 
