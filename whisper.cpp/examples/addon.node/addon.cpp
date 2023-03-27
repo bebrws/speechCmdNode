@@ -561,8 +561,12 @@ printf("audio get \n");
             
 
                     }
+                    printf("\nOUTSIDE OF WHIEL LOOP\n");
                     audio.pause(); })
         .detach();
+    // .join();
+
+    printf("\nDetached thread\n");
 
     // whisper_print_timings(ctx);
     // whisper_free(ctx);
