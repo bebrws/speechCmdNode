@@ -43,9 +43,9 @@ function shouldEnd() {
 }
 
 
-setTimeout(() => { console.log("*****timeout called****"); shouldEndNow = true; }, 4000)
+setTimeout(() => { console.log("*****timeout called****"); shouldEndNow = true; }, 10000)
 
-addon.startTask(whisperParams, (str) => {
+addon.startTask(whisperParams, (err, str) => {
     console.log("Value from whisper: ", str);
 }, shouldEnd);
 

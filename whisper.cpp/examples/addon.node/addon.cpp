@@ -143,28 +143,31 @@ public:
 
         int n_iter = 0;
 
-        printf("[Start speaking]");
+        // printf("[Start speaking]");
 
         auto t_last = std::chrono::high_resolution_clock::now();
         const auto t_start = t_last;
 
         bool should_end = false;
 
+        int cc = 0;
         // main audio loop
         while (is_running && !should_end)
         {
-
-            should_end = tsfnToEnd.NonBlockingCall([&should_end](Napi::Env env, Napi::Function jsCallback) -> Napi::Boolean
-                                                   { 
+            cc++;
+            if (cc % 30 == 0)
+            {
+                should_end = tsfnToEnd.NonBlockingCall([&should_end](Napi::Env env, Napi::Function jsCallback) -> Napi::Boolean
+                                                       { 
                             Napi::Boolean sent =  jsCallback.Call({}).As<Napi::Boolean>();
-                            printf("\n\n~~~~sent: %d", sent.Value());
+                            //printf("\n\n~~~~sent: %d", sent.Value());
                             should_end = sent.Value();
                             return sent; });
+            }
+            // printf("\nshould_end: %d\n", should_end);
 
-            printf("\nshould_end: %d\n", should_end);
-
-            printf("in loop \n");
-            // handle Ctrl + C
+            // printf("in loop \n");
+            //  handle Ctrl + C
             is_running = sdl_poll_events();
 
             if (!is_running)
@@ -182,30 +185,30 @@ public:
                 continue;
             }
 
-            printf("audio get \n");
+            // printf("audio get \n");
             audio.get(2000, pcmf32_new);
 
             if (::vad_simple(pcmf32_new, WHISPER_SAMPLE_RATE, 1000, params.vad_thold, params.freq_thold, false))
             {
-                printf("vad simple called \n");
+                // printf("vad simple called \n");
                 audio.get(params.length_ms, pcmf32);
-                printf("audio get called \n");
+                // printf("audio get called \n");
             }
             else
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                printf("somethign bad happened \n");
+                // printf("somethign bad happened \n");
                 continue;
             }
 
             t_last = t_now;
             // }
 
-            printf("run the interference\n");
-            // run the inference
+            // printf("run the interference\n");
+            //  run the inference
             {
                 whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
-                printf("run whisper_full_default_params\n");
+                // printf("run whisper_full_default_params\n");
 
                 wparams.print_progress = false;
                 wparams.print_special = params.print_special;
@@ -224,11 +227,11 @@ public:
                 // disable temperature fallback
                 wparams.temperature_inc = -1.0f;
 
-                printf("params.no_context: %d\n", params.no_context);
+                // printf("params.no_context: %d\n", params.no_context);
                 wparams.prompt_tokens = params.no_context ? nullptr : prompt_tokens.data();
                 wparams.prompt_n_tokens = params.no_context ? 0 : prompt_tokens.size();
 
-                printf("before whisper full\n");
+                // printf("before whisper full\n");
 
                 if (whisper_full(this->ctx, wparams, pcmf32.data(), pcmf32.size()) != 0)
                 {
@@ -236,7 +239,7 @@ public:
                     return;
                 }
 
-                printf("using whisper_full is created\n");
+                // printf("using whisper_full is created\n");
 
                 // print result;
                 {
@@ -244,40 +247,40 @@ public:
                     const int64_t t1 = (t_last - t_start).count() / 1000000;
                     const int64_t t0 = std::max(0.0, t1 - pcmf32.size() * 1000.0 / WHISPER_SAMPLE_RATE);
 
-                    printf("\n");
-                    printf("### Transcription %d START | t0 = %d ms | t1 = %d ms\n", n_iter, (int)t0, (int)t1);
-                    printf("\n");
-                    // }
+                    // printf("\n");
+                    // printf("### Transcription %d START | t0 = %d ms | t1 = %d ms\n", n_iter, (int)t0, (int)t1);
+                    // printf("\n");
+                    //  }
 
                     const int n_segments = whisper_full_n_segments(this->ctx);
-                    printf("After full ng segments\n");
+                    // printf("After full ng segments\n");
                     for (int i = 0; i < n_segments; ++i)
                     {
                         const char *text = whisper_full_get_segment_text(this->ctx, i);
-                        printf("before progress: %s\n", text);
+                        // printf("before progress: %s\n", text);
                         if (text)
                         {
                             progress.Send(text, strlen(text));
                         }
 
                         std::this_thread::sleep_for(std::chrono::milliseconds(2)); // TODO:  REMOE
-                        printf("afters progress\n");
+                        // printf("afters progress\n");
                     }
 
-                    printf("\n");
-                    printf("### Transcription %d END\n", n_iter);
+                    // printf("\n");
+                    // printf("### Transcription %d END\n", n_iter);
                 }
 
                 ++n_iter;
             }
         }
-        printf("\nOUTSIDE OF WHIEL LOOP\n");
+        // printf("\nOUTSIDE OF WHIEL LOOP\n");
         audio.pause();
         //         })
         // .detach();
         // .join();
 
-        printf("\nDetached thread\n");
+        // printf("\nDetached thread\n");
 
         // whisper_print_timings(ctx);
         // whisper_free(this->ctx);
@@ -299,7 +302,7 @@ public:
     {
         HandleScope scope(Env());
         // Pass no error, give back original data
-        printf("In On OK");
+        // printf("In On OK");
         Callback().Call({Env().Null(), String::New(Env(), "DONE in OnOK")});
 
         // whisper_print_timings(ctx);
@@ -309,11 +312,11 @@ public:
     }
     void OnProgress(const char *data, size_t count) override
     {
-        printf("In Progress");
+        // printf("In Progress");
         HandleScope scope(Env());
         // Pass no error, no echo data, but do pass on the progress data
         // Callback().Call({Env().Null(), Env().Null(), Number::New(Env(), *data)});
-        Callback().Call({Env().Null(), String::New(Env(), "Passing data")});
+        Callback().Call({Env().Null(), String::New(Env(), data)});
     }
 
 private:
