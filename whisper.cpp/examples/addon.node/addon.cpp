@@ -80,8 +80,8 @@ int pc = 1;
 class MyWorker : public AsyncProgressWorker<char>
 {
 public:
-    MyWorker(Function &callback)
-        : AsyncProgressWorker(callback) {}
+    MyWorker(Function &callback, Napi::ThreadSafeFunction tsfnToEnd)
+        : AsyncProgressWorker(callback), tsfnToEnd(tsfnToEnd) {}
     // ~MyWorker() {}
 
     // This code will be executed on the worker thread
@@ -148,9 +148,20 @@ public:
         auto t_last = std::chrono::high_resolution_clock::now();
         const auto t_start = t_last;
 
+        bool should_end = false;
+
         // main audio loop
-        while (is_running)
+        while (is_running && !should_end)
         {
+
+            should_end = tsfnToEnd.NonBlockingCall([&should_end](Napi::Env env, Napi::Function jsCallback) -> Napi::Boolean
+                                                   { 
+                            Napi::Boolean sent =  jsCallback.Call({}).As<Napi::Boolean>();
+                            printf("\n\n~~~~sent: %d", sent.Value());
+                            should_end = sent.Value();
+                            return sent; });
+
+            printf("\nshould_end: %d\n", should_end);
 
             printf("in loop \n");
             // handle Ctrl + C
@@ -299,17 +310,17 @@ public:
         Callback().Call({Env().Null(), String::New(Env(), "Passing data")});
     }
 
-    // private:
-    //     Napi::ThreadSafeFunction tsfn;
+private:
+    Napi::ThreadSafeFunction tsfnToEnd;
 };
 
 Napi::Value MyFunction(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
 
-    if (info.Length() < 2) //  || !info[1].IsFunction() || !info[2].IsFunction())
+    if (info.Length() < 3) //  || !info[1].IsFunction() || !info[2].IsFunction())
     {
-        Napi::TypeError::New(env, "Must be 3 args, config, callback with data").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "Must be 3 args, config, callback to stop").ThrowAsJavaScriptException();
         return env.Null();
     }
 
@@ -325,6 +336,14 @@ Napi::Value MyFunction(const Napi::CallbackInfo &info)
     // std::string input = whisper_params.Get("fname_inp").As<Napi::String>();
 
     Napi::Function callback = info[1].As<Napi::Function>();
+    Napi::Function callbackToEnd = info[2].As<Napi::Function>();
+
+    auto tsfnToEnd = Napi::ThreadSafeFunction::New(
+        env,
+        callbackToEnd,
+        "ResultCallback",
+        0, // Unlimited queue
+        1);
 
     // auto tsfn = Napi::ThreadSafeFunction::New(
     //     env,
@@ -336,7 +355,7 @@ Napi::Value MyFunction(const Napi::CallbackInfo &info)
     // params.language = language;
     // params.model = model;
 
-    MyWorker *worker = new MyWorker(callback);
+    MyWorker *worker = new MyWorker(callback, tsfnToEnd);
     // Napi::AsyncProgressWorker *async_worker = static_cast<Napi::AsyncProgressWorker *>(worker);
     worker->Queue();
     // Napi::ObjectReference *objRef = new Napi::ObjectReference(env, Napi::Persistent(info.This()));
