@@ -35,9 +35,18 @@ const whisperParams = {
 
 console.log("whisperParams =", whisperParams);
 
+let shouldEndNow = false;
+function shouldEnd() {
+    console.error("Shoudl end was called: ", shouldEndNow)
+    return shouldEndNow;
+}
+
+
+setTimeout(() => { console.log("*****timeout called****"); shouldEndNow = true; }, 5000)
+
 addon.startTask(whisperParams, (str) => {
-    console.log(str);
-});
+    console.log("Value from whisper: ", str);
+}, shouldEnd);
 
 // whisperAsync(whisperParams, ((resp) => {
 //     console.log("resp: ", resp);

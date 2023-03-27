@@ -1,7 +1,16 @@
+/*
+please write me c++ node add on example code  that returns a function which takes a javascript function as an argument that returns a boolean, I want to call this function from a thread periodically to see if I should stop the thread.
+
+
+
+*/
+
 #include "napi.h"
 #include "common.h"
 #include "common-sdl.h"
 #include "whisper.h"
+
+#include <node_api.h>
 
 // #include <node.h>
 
@@ -125,6 +134,7 @@ struct whisper_params
 struct CallbackContext
 {
     Napi::ThreadSafeFunction tsfn;
+    Napi::ThreadSafeFunction tsfnToEnd;
 };
 
 const int n_samples_step = (1e-3 * 3000) * WHISPER_SAMPLE_RATE;
@@ -139,38 +149,6 @@ const int n_new_line = !use_vad ? std::max(1, 10000 / 3000 - 1) : 1; // number o
 Napi::Value StartThread(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
-
-    Napi::Function callback = info[1].As<Napi::Function>();
-
-    auto tsfn = Napi::ThreadSafeFunction::New(
-        env,
-        callback,
-        "Callback",
-        0, // Unlimited queue
-        1);
-
-    // fprintf(stderr, "\n");
-    // fprintf(stderr, "usage: %s [options]\n", argv[0]);
-    // fprintf(stderr, "\n");
-    // fprintf(stderr, "options:\n");
-    // fprintf(stderr, "  -h,       --help          [default] show this help message and exit\n");
-    // fprintf(stderr, "  -t N,     --threads N     [%-7d] number of threads to use during computation\n", params.n_threads);
-    // fprintf(stderr, "            --step N        [%-7d] audio step size in milliseconds\n", params.step_ms);
-    // fprintf(stderr, "            --length N      [%-7d] audio length in milliseconds\n", params.length_ms);
-    // fprintf(stderr, "            --keep N        [%-7d] audio to keep from previous step in ms\n", params.keep_ms);
-    // fprintf(stderr, "  -c ID,    --capture ID    [%-7d] capture device ID\n", params.capture_id);
-    // fprintf(stderr, "  -mt N,    --max-tokens N  [%-7d] maximum number of tokens per audio chunk\n", params.max_tokens);
-    // fprintf(stderr, "  -ac N,    --audio-ctx N   [%-7d] audio context size (0 - all)\n", params.audio_ctx);
-    // fprintf(stderr, "  -vth N,   --vad-thold N   [%-7.2f] voice activity detection threshold\n", params.vad_thold);
-    // fprintf(stderr, "  -fth N,   --freq-thold N  [%-7.2f] high-pass frequency cutoff\n", params.freq_thold);
-    // fprintf(stderr, "  -su,      --speed-up      [%-7s] speed up audio by x2 (reduced accuracy)\n", params.speed_up ? "true" : "false");
-    // fprintf(stderr, "  -tr,      --translate     [%-7s] translate from source language to english\n", params.translate ? "true" : "false");
-    // fprintf(stderr, "  -ps,      --print-special [%-7s] print special tokens\n", params.print_special ? "true" : "false");
-    // fprintf(stderr, "  -kc,      --keep-context  [%-7s] keep context between audio chunks\n", params.no_context ? "false" : "true");
-    // fprintf(stderr, "  -l LANG,  --language LANG [%-7s] spoken language\n", params.language.c_str());
-    // fprintf(stderr, "  -m FNAME, --model FNAME   [%-7s] model path\n", params.model.c_str());
-    // fprintf(stderr, "  -f FNAME, --file FNAME    [%-7s] text output file name\n", params.fname_out.c_str());
-    // fprintf(stderr, "\n");
 
     whisper_params params;
 
@@ -198,6 +176,47 @@ Napi::Value StartThread(const Napi::CallbackInfo &info)
     params.model = model;
     // params.fname_inp.emplace_back(input);
 
+    // fprintf(stderr, "\n");
+    // fprintf(stderr, "usage: %s [options]\n", argv[0]);
+    // fprintf(stderr, "\n");
+    // fprintf(stderr, "options:\n");
+    // fprintf(stderr, "  -h,       --help          [default] show this help message and exit\n");
+    // fprintf(stderr, "  -t N,     --threads N     [%-7d] number of threads to use during computation\n", params.n_threads);
+    // fprintf(stderr, "            --step N        [%-7d] audio step size in milliseconds\n", params.step_ms);
+    // fprintf(stderr, "            --length N      [%-7d] audio length in milliseconds\n", params.length_ms);
+    // fprintf(stderr, "            --keep N        [%-7d] audio to keep from previous step in ms\n", params.keep_ms);
+    // fprintf(stderr, "  -c ID,    --capture ID    [%-7d] capture device ID\n", params.capture_id);
+    // fprintf(stderr, "  -mt N,    --max-tokens N  [%-7d] maximum number of tokens per audio chunk\n", params.max_tokens);
+    // fprintf(stderr, "  -ac N,    --audio-ctx N   [%-7d] audio context size (0 - all)\n", params.audio_ctx);
+    // fprintf(stderr, "  -vth N,   --vad-thold N   [%-7.2f] voice activity detection threshold\n", params.vad_thold);
+    // fprintf(stderr, "  -fth N,   --freq-thold N  [%-7.2f] high-pass frequency cutoff\n", params.freq_thold);
+    // fprintf(stderr, "  -su,      --speed-up      [%-7s] speed up audio by x2 (reduced accuracy)\n", params.speed_up ? "true" : "false");
+    // fprintf(stderr, "  -tr,      --translate     [%-7s] translate from source language to english\n", params.translate ? "true" : "false");
+    // fprintf(stderr, "  -ps,      --print-special [%-7s] print special tokens\n", params.print_special ? "true" : "false");
+    // fprintf(stderr, "  -kc,      --keep-context  [%-7s] keep context between audio chunks\n", params.no_context ? "false" : "true");
+    // fprintf(stderr, "  -l LANG,  --language LANG [%-7s] spoken language\n", params.language.c_str());
+    // fprintf(stderr, "  -m FNAME, --model FNAME   [%-7s] model path\n", params.model.c_str());
+    // fprintf(stderr, "  -f FNAME, --file FNAME    [%-7s] text output file name\n", params.fname_out.c_str());
+    // fprintf(stderr, "\n");
+
+    Napi::Function callback = info[1].As<Napi::Function>();
+
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        callback,
+        "Callback",
+        0, // Unlimited queue
+        1);
+
+    Napi::Function callbackToEnd = info[2].As<Napi::Function>();
+
+    auto tsfnToEnd = Napi::ThreadSafeFunction::New(
+        env,
+        callbackToEnd,
+        "ResultCallback",
+        0, // Unlimited queue
+        1);
+
     // whisper init
 
     if (whisper_lang_id(params.language.c_str()) == -1)
@@ -209,9 +228,12 @@ Napi::Value StartThread(const Napi::CallbackInfo &info)
 
     struct whisper_context *ctx = whisper_init_from_file(params.model.c_str());
 
-    std::thread([tsfn, params, ctx]()
+    std::thread([tsfn, tsfnToEnd, params, ctx]()
                 {
-                    // Simulate a long-running task
+                    bool is_running = true;
+                    bool should_end = false;
+
+                                        // Simulate a long-running task
                     //   std::this_thread::sleep_for(std::chrono::seconds(1));
 
 
@@ -271,7 +293,6 @@ Napi::Value StartThread(const Napi::CallbackInfo &info)
 
                     int n_iter = 0;
 
-                    bool is_running = true;
 
                     std::ofstream fout;
                     // if (params.fname_out.length() > 0)
@@ -291,8 +312,21 @@ Napi::Value StartThread(const Napi::CallbackInfo &info)
                     const auto t_start = t_last;
 
                     // main audio loop
-                    while (is_running)
+                    while (is_running && !should_end)
                     {
+
+                        
+
+                        // auto resultContext = new CallbackContext{tsfnToEnd};
+                        should_end = tsfnToEnd.NonBlockingCall([&should_end](Napi::Env env, Napi::Function jsCallback) -> Napi::Boolean
+                                                               { 
+                            Napi::Boolean sent =  jsCallback.Call({}).As<Napi::Boolean>();
+                            printf("\n\n~~~~sent: %d", sent.Value());
+                            should_end = sent.Value();
+                            return sent;
+                        });
+
+                        printf("\nshould_end: %d\n", should_end);
 
                         printf("in loop \n");
                         // handle Ctrl + C
@@ -523,6 +557,9 @@ printf("audio get \n");
                             //     }
                             // }
                         }
+
+            
+
                     }
                     audio.pause(); })
         .detach();
