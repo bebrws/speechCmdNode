@@ -1,3 +1,6 @@
+const SegfaultHandler = require('segfault-handler');
+SegfaultHandler.registerHandler('crash.log');
+
 const path = require("path");
 const addon = require(path.join(
     __dirname,

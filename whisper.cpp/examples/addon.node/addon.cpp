@@ -132,7 +132,7 @@ const int n_samples_len = (1e-3 * 10000) * WHISPER_SAMPLE_RATE;
 const int n_samples_keep = (1e-3 * 200) * WHISPER_SAMPLE_RATE;
 const int n_samples_30s = (1e-3 * 30000.0) * WHISPER_SAMPLE_RATE;
 
-const bool use_vad = n_samples_step <= 0; // sliding window mode uses VAD
+const bool use_vad = true; // n_samples_step <= 0; // sliding window mode uses VAD
 
 const int n_new_line = !use_vad ? std::max(1, 10000 / 3000 - 1) : 1; // number of steps to print new line
 
@@ -209,7 +209,7 @@ Napi::Value StartThread(const Napi::CallbackInfo &info)
 
     struct whisper_context *ctx = whisper_init_from_file(params.model.c_str());
 
-    std::thread([tsfn, params, &ctx]()
+    std::thread([tsfn, params, ctx]()
                 {
                     // Simulate a long-running task
                     //   std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -285,7 +285,7 @@ Napi::Value StartThread(const Napi::CallbackInfo &info)
                     // }
 
                     printf("[Start speaking]");
-                    fflush(stdout);
+                    // fflush(stdout);
 
                     auto t_last = std::chrono::high_resolution_clock::now();
                     const auto t_start = t_last;
@@ -293,6 +293,8 @@ Napi::Value StartThread(const Napi::CallbackInfo &info)
                     // main audio loop
                     while (is_running)
                     {
+
+                        printf("in loop \n");
                         // handle Ctrl + C
                         is_running = sdl_poll_events();
 
@@ -355,25 +357,30 @@ Napi::Value StartThread(const Napi::CallbackInfo &info)
                             continue;
                         }
 
+printf("audio get \n");
                         audio.get(2000, pcmf32_new);
 
                         if (::vad_simple(pcmf32_new, WHISPER_SAMPLE_RATE, 1000, params.vad_thold, params.freq_thold, false))
                         {
+                            printf("vad simple called \n");
                             audio.get(params.length_ms, pcmf32);
+                            printf("audio get called \n");
                         }
                         else
                         {
                             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
+                            printf("somethign bad happened \n");
                             continue;
                         }
 
                         t_last = t_now;
                         // }
 
+                        printf("run the interference\n");
                         // run the inference
                         {
                             whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+                            printf("run whisper_full_default_params\n");
 
                             wparams.print_progress = false;
                             wparams.print_special = params.print_special;
@@ -392,14 +399,19 @@ Napi::Value StartThread(const Napi::CallbackInfo &info)
                             // disable temperature fallback
                             wparams.temperature_inc = -1.0f;
 
+                            printf("params.no_context: %d\n", params.no_context);
                             wparams.prompt_tokens = params.no_context ? nullptr : prompt_tokens.data();
                             wparams.prompt_n_tokens = params.no_context ? 0 : prompt_tokens.size();
 
+                            printf("before whisper full\n");
+                            
                             if (whisper_full(ctx, wparams, pcmf32.data(), pcmf32.size()) != 0)
                             {
-                                // fprintf(stderr, "%s: failed to process audio\n", argv[0]);
+                                fprintf(stderr, "failed to process audio\n");
                                 return;
                             }
+
+                            printf("using whisper_full is created\n");
 
                             // print result;
                             {
@@ -515,8 +527,8 @@ Napi::Value StartThread(const Napi::CallbackInfo &info)
                     audio.pause(); })
         .detach();
 
-    whisper_print_timings(ctx);
-    whisper_free(ctx);
+    // whisper_print_timings(ctx);
+    // whisper_free(ctx);
 
     return Napi::Boolean::New(env, true);
 }
