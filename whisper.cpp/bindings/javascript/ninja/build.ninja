@@ -46,7 +46,7 @@ build cmake_object_order_depends_target_libwhisper: phony || CMakeFiles/libwhisp
 
 build CMakeFiles/libwhisper.dir/emscripten.o: CXX_COMPILER__libwhisper_ /Users/bbarrows/repos/whisper.cpp/bindings/javascript/emscripten.cpp || cmake_object_order_depends_target_libwhisper
   DEP_FILE = CMakeFiles/libwhisper.dir/emscripten.o.d
-  FLAGS = -I/Users/bbarrows/repos/emsdk/upstream/emscripten/cache/sysroot/include -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk
+  FLAGS = -I/opt/homebrew/Cellar/sdl2/2.26.4/include/SDL2 -I/Users/bbarrows/repos/emsdk/upstream/emscripten/cache/sysroot/include -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk
   OBJECT_DIR = CMakeFiles/libwhisper.dir
   OBJECT_FILE_DIR = CMakeFiles/libwhisper.dir
 
@@ -59,7 +59,7 @@ build CMakeFiles/libwhisper.dir/emscripten.o: CXX_COMPILER__libwhisper_ /Users/b
 # Link the executable libwhisper
 
 build libwhisper: CXX_EXECUTABLE_LINKER__libwhisper_ CMakeFiles/libwhisper.dir/emscripten.o
-  FLAGS = -I/Users/bbarrows/repos/emsdk/upstream/emscripten/cache/sysroot/include -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk
+  FLAGS = -I/opt/homebrew/Cellar/sdl2/2.26.4/include/SDL2 -I/Users/bbarrows/repos/emsdk/upstream/emscripten/cache/sysroot/include -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk
   LINK_FLAGS = -L/opt/homebrew/lib -L/opt/homebrew/Cellar/openssl@3/3.0.8/lib -I/Users/bbarrows/lib       --bind     -s MODULARIZE=1     -s EXPORT_NAME="'whisper_factory'"     -s FORCE_FILESYSTEM=1     -s USE_PTHREADS=1     -s PTHREAD_POOL_SIZE=8     -s ALLOW_MEMORY_GROWTH=1
   LINK_LIBRARIES = -lwhisper
   OBJECT_DIR = CMakeFiles/libwhisper.dir

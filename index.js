@@ -1,11 +1,12 @@
 const path = require("path");
-const { whisper } = require(path.join(
+const addon = require(path.join(
     __dirname,
     "./whisper.cpp/build/Release/whisper-addon.node"
 ));
 const { promisify } = require("util");
 
-const whisperAsync = promisify(whisper);
+// console.log(whisper);
+// const whisperAsync = promisify(whisper);
 
 const whisperParams = {
     language: "en",
@@ -31,9 +32,15 @@ const whisperParams = {
 
 console.log("whisperParams =", whisperParams);
 
-whisperAsync(whisperParams).then((result) => {
-    console.log(`Result from whisper: ${result}`);
+addon.startTask((str) => {
+    console.log(str);
 });
+
+// whisperAsync(whisperParams, ((resp) => {
+//     console.log("resp: ", resp);
+// })).then((result) => {
+//     console.log(`Result from whisper: ${result}`);
+// });
 
 
 // import { SpeechRecorder } from 'speech-recorder';

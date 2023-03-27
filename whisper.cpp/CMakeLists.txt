@@ -47,7 +47,8 @@ option(WHISPER_SANITIZE_UNDEFINED      "whisper: enable undefined sanitizer" OFF
 option(WHISPER_BUILD_TESTS             "whisper: build tests"    ${WHISPER_STANDALONE})
 option(WHISPER_BUILD_EXAMPLES          "whisper: build examples" ${WHISPER_STANDALONE})
 
-option(WHISPER_SUPPORT_SDL2            "whisper: support for libSDL2" OFF)
+option(WHISPER_SUPPORT_SDL2            "whisper: support for libSDL2" ON)
+set(WHISPER_SUPPORT_SDL2 ON)
 
 if (APPLE)
     option(WHISPER_NO_ACCELERATE       "whisper: disable Accelerate framework" OFF)
@@ -120,33 +121,31 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo")
 endif ()
 
-if (WHISPER_ALL_WARNINGS)
-    if (NOT MSVC)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
-            -Wall                           \
-            -Wextra                         \
-            -Wpedantic                      \
-            -Wshadow                        \
-            -Wcast-qual                     \
-            -Wstrict-prototypes             \
-            -Wpointer-arith                 \
-            -Wno-unused-function            \
-        ")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-            -Wall                           \
-            -Wextra                         \
-            -Wpedantic                      \
-            -Wcast-qual                     \
-        ")
-    else()
-        # todo : msvc
-    endif()
-endif()
 
-if (NOT MSVC)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror=vla")
-    #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-math-errno -ffinite-math-only -funsafe-math-optimizations")
-endif()
+set(CMAKE_CXX_FLAGS "-I/opt/homebrew/Cellar/sdl2/2.26.4/include/SDL2")
+set(CMAKE_C_FLAGS "-I/opt/homebrew/Cellar/sdl2/2.26.4/include/SDL2")
+
+# if (WHISPER_ALL_WARNINGS)
+#     if (NOT MSVC)
+#         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
+#             -Wshadow                        \
+#             -Wcast-qual                     \
+#             -Wstrict-prototypes             \
+#             -Wpointer-arith                 \
+#             -Wno-unused-function            \
+#         ")
+#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
+#             -Wcast-qual                     \
+#         ")
+#     else()
+#         # todo : msvc
+#     endif()
+# endif()
+
+# if (NOT MSVC)
+#     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror=vla")
+#     #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-math-errno -ffinite-math-only -funsafe-math-optimizations")
+# endif()
 
 message(STATUS "CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 
