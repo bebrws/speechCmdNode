@@ -6,7 +6,7 @@
 #include <node_api.h>
 
 // #include <node.h>
-
+#include <iostream>
 #include <cassert>
 #include <cstdio>
 #include <string>
@@ -17,6 +17,8 @@
 #include <cmath>
 #include <cstdint>
 #include <ostream>
+
+using namespace Napi;
 
 struct whisper_params
 {
@@ -72,72 +74,75 @@ const int n_samples_30s = (1e-3 * 30000.0) * WHISPER_SAMPLE_RATE;
 const bool use_vad = true; // n_samples_step <= 0; // sliding window mode uses VAD
 
 const int n_new_line = !use_vad ? std::max(1, 10000 / 3000 - 1) : 1; // number of steps to print new line
+bool should_stop = false;
+char temp[100]; // TODO: REMOVE
 
-class MyWorker : public Napi::AsyncWorker
+// class MyWorker : public Napi::AsyncProgressWorker<const char *>
+// {
+// public:
+//     MyWorker(Napi::Function &callback, Napi::Function &stopCallback)
+//         : Napi::AsyncProgressWorker(callback), stopCallback_(stopCallback)
+//     {
+//     }
+
+class MyWorker : public AsyncProgressWorker<uint32_t>
 {
 public:
-    MyWorker(Napi::Function &callback, Napi::Function &stopCallback)
-        : Napi::AsyncWorker(callback), stopCallback_(stopCallback)
-    {
-    }
+    MyWorker(Function &okCallback)
+        : AsyncProgressWorker(okCallback) {}
+    ~MyWorker() {}
 
-    void Execute() override
+    // This code will be executed on the worker thread
+    void Execute(const ExecutionProgress &progress)
     {
-        // Do some work in a separate thread
-        for (int i = 0; i < 10; i++)
+        // Need to simulate cpu heavy task
+        // Note: This Send() call is not guaranteed to trigger an equal
+        // number of OnProgress calls (read documentation above for more info)
+        for (uint32_t i = 0; i < 100; ++i)
         {
-            if (stopped_)
-            {
-                // Stop the worker if the stopCallback was called
-                return;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            result_ = i * 2;
+            progress.Send(&i, 1);
         }
     }
 
-    void OnOK() override
+    void OnError(const Error &e)
     {
-        // Call the JavaScript callback function with the result
-        Napi::HandleScope scope(Env());
-        auto hw = Napi::String::New(this->Env(), "hello from Worker");
-        Callback().Call({hw});
+        HandleScope scope(Env());
+        // Pass error onto JS, no data for other parameters
+        Callback().Call({String::New(Env(), e.Message())});
+    }
+    void OnOK()
+    {
+        HandleScope scope(Env());
+        // Pass no error, give back original data
+        Callback().Call({Env().Null(), String::New(Env(), "DONE in OnOK")});
+    }
+    void OnProgress(const uint32_t *data, size_t /* count */)
+    {
+        HandleScope scope(Env());
+        // Pass no error, no echo data, but do pass on the progress data
+        // Callback().Call({Env().Null(), Env().Null(), Number::New(Env(), *data)});
+        Callback().Call({Env().Null(), String::New(Env(), "Passing data")});
     }
 
-    void OnError(Napi::Error const &error) override
-    {
-        // Call the JavaScript callback function with the error
-        Napi::HandleScope scope(Env());
-        Callback().Call({error.Value()});
-        cerr << "ERROR: " << error.Value() << endl;
-        // fprintf(stderr, "RESULT:\n");
-    }
-
-    void Stop()
-    {
-        stopped_ = true;
-    }
-
-private:
-    int result_;
-    Napi::Function stopCallback_;
-    bool stopped_ = false;
+    // private:
 };
 
 void StopWorker(const Napi::CallbackInfo &info)
 {
-    Napi::Env env = info.Env();
-    MyWorker *worker = static_cast<MyWorker *>(info.Data());
-    worker->Stop();
+    // Napi::Env env = info.Env();
+    // MyWorker *worker = static_cast<MyWorker *>(info.Data());
+    // AsyncProgressWorker<uint32_t> *worker = static_cast<AsyncProgressWorker<uint32_t> *>(info.Data());
+    // worker->Stop();
+    should_stop = true;
 }
 
 Napi::Value MyFunction(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
 
-    if (info.Length() < 3) //  || !info[1].IsFunction() || !info[2].IsFunction())
+    if (info.Length() < 2) //  || !info[1].IsFunction() || !info[2].IsFunction())
     {
-        Napi::TypeError::New(env, "Must be 3 args, config, callback with data, function to stop thread").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "Must be 3 args, config, callback with data").ThrowAsJavaScriptException();
         return env.Null();
     }
 
@@ -154,14 +159,13 @@ Napi::Value MyFunction(const Napi::CallbackInfo &info)
     // std::string input = whisper_params.Get("fname_inp").As<Napi::String>();
 
     Napi::Function callback = info[1].As<Napi::Function>();
-    Napi::Function stopCallback = info[2].As<Napi::Function>();
 
     params.language = language;
     params.model = model;
 
-    MyWorker *worker = new MyWorker(callback, stopCallback);
-    Napi::AsyncWorker *async_worker = static_cast<Napi::AsyncWorker *>(worker);
-    async_worker->Queue();
+    MyWorker *worker = new MyWorker(callback);
+    // Napi::AsyncProgressWorker *async_worker = static_cast<Napi::AsyncProgressWorker *>(worker);
+    worker->Queue();
     // Napi::ObjectReference *objRef = new Napi::ObjectReference(env, Napi::Persistent(info.This()));
     // async_worker->Queue(objRef, StopWorker);
 

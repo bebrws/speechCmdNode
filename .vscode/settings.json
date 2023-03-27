@@ -64,6 +64,25 @@
         "type_traits": "cpp",
         "functional": "cpp",
         "utility": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "bit": "cpp",
+        "*.tcc": "cpp",
+        "compare": "cpp",
+        "complex": "cpp",
+        "concepts": "cpp",
+        "condition_variable": "cpp",
+        "algorithm": "cpp",
+        "iterator": "cpp",
+        "memory": "cpp",
+        "memory_resource": "cpp",
+        "numeric": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "stop_token": "cpp",
+        "cinttypes": "cpp",
+        "__tree": "cpp",
+        "map": "cpp",
+        "queue": "cpp",
+        "stack": "cpp"
     }
 }
