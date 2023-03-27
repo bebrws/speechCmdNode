@@ -292,6 +292,8 @@ public:
         Callback().Call({String::New(Env(), e.Message())});
 
         whisper_free(this->ctx);
+
+        this->tsfnToEnd.Release();
     }
     void OnOK() override
     {
