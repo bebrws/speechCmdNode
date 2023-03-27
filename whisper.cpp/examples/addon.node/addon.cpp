@@ -74,49 +74,228 @@ const int n_samples_30s = (1e-3 * 30000.0) * WHISPER_SAMPLE_RATE;
 const bool use_vad = true; // n_samples_step <= 0; // sliding window mode uses VAD
 
 const int n_new_line = !use_vad ? std::max(1, 10000 / 3000 - 1) : 1; // number of steps to print new line
-bool should_stop = false;
-char temp[100]; // TODO: REMOVE
 
-// class MyWorker : public Napi::AsyncProgressWorker<const char *>
-// {
-// public:
-//     MyWorker(Napi::Function &callback, Napi::Function &stopCallback)
-//         : Napi::AsyncProgressWorker(callback), stopCallback_(stopCallback)
-//     {
-//     }
-
-class MyWorker : public AsyncProgressWorker<uint32_t>
+class MyWorker : public AsyncProgressWorker<char>
 {
 public:
-    MyWorker(Function &okCallback)
-        : AsyncProgressWorker(okCallback) {}
-    ~MyWorker() {}
+    MyWorker(Function &callback, Napi::ThreadSafeFunction tsfn)
+        : AsyncProgressWorker(callback), tsfn(tsfn) {}
+    // ~MyWorker() {}
 
     // This code will be executed on the worker thread
-    void Execute(const ExecutionProgress &progress)
+    void Execute(const ExecutionProgress &progress) override
     {
-        // Need to simulate cpu heavy task
-        // Note: This Send() call is not guaranteed to trigger an equal
-        // number of OnProgress calls (read documentation above for more info)
-        for (uint32_t i = 0; i < 100; ++i)
-        {
-            progress.Send(&i, 1);
-        }
+        whisper_params params;
+
+        params.keep_ms = 200;    // std::min(params.keep_ms, params.step_ms);
+        params.length_ms = 3000; // std::max(params.length_ms, params.step_ms);
+        params.no_timestamps = !use_vad;
+        params.no_context |= use_vad;
+        params.max_tokens = 0;
+        params.language = "en";
+        params.model = "/Users/bbarrows/repos/speechCmdNode/whisper.cpp/models/ggml-base.en.bin";
+
+        struct whisper_context *ctx = whisper_init_from_file(params.model.c_str());
+
+        Napi::ThreadSafeFunction tsfn = this->tsfn;
+
+        // const ExecutionProgress &progress = this->progress;
+
+        std::thread([tsfn, params, ctx, progress]()
+                    {
+                    bool is_running = true;
+
+
+                    audio_async audio(params.length_ms);
+                    if (!audio.init(params.capture_id, WHISPER_SAMPLE_RATE))
+                    {
+                        fprintf(stderr, "%s: audio.init() failed!\n", __func__);
+                        // return 1;
+                        return;
+                    }
+
+                    audio.resume();
+
+                    std::vector<float> pcmf32(n_samples_30s, 0.0f);
+                    std::vector<float> pcmf32_old;
+                    std::vector<float> pcmf32_new(n_samples_30s, 0.0f);
+
+                    std::vector<whisper_token> prompt_tokens;
+
+                    {
+                        fprintf(stderr, "\n");
+    
+                        fprintf(stderr, "%s: processing %d samples (step = %.1f sec / len = %.1f sec / keep = %.1f sec), %d threads, lang = %s, task = %s, timestamps = %d ...\n",
+                                __func__,
+                                n_samples_step,
+                                float(n_samples_step) / WHISPER_SAMPLE_RATE,
+                                float(n_samples_len) / WHISPER_SAMPLE_RATE,
+                                float(n_samples_keep) / WHISPER_SAMPLE_RATE,
+                                params.n_threads,
+                                params.language.c_str(),
+                                params.translate ? "translate" : "transcribe",
+                                params.no_timestamps ? 0 : 1);
+
+                        fprintf(stderr, "%s: using VAD, will transcribe on speech activity\n", __func__);
+                   
+
+                        fprintf(stderr, "\n");
+                    }
+
+                    int n_iter = 0;
+
+
+
+                    printf("[Start speaking]");
+
+                    auto t_last = std::chrono::high_resolution_clock::now();
+                    const auto t_start = t_last;
+
+                    // main audio loop
+                    while (is_running)
+                    {
+
+                        printf("in loop \n");
+                        // handle Ctrl + C
+                        is_running = sdl_poll_events();
+
+                        if (!is_running)
+                        {
+                            break;
+                        }
+
+            
+                        const auto t_now = std::chrono::high_resolution_clock::now();
+                        const auto t_diff = std::chrono::duration_cast<std::chrono::milliseconds>(t_now - t_last).count();
+
+                        if (t_diff < 2000)
+                        {
+                            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+                            continue;
+                        }
+
+printf("audio get \n");
+                        audio.get(2000, pcmf32_new);
+
+                        if (::vad_simple(pcmf32_new, WHISPER_SAMPLE_RATE, 1000, params.vad_thold, params.freq_thold, false))
+                        {
+                            printf("vad simple called \n");
+                            audio.get(params.length_ms, pcmf32);
+                            printf("audio get called \n");
+                        }
+                        else
+                        {
+                            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                            printf("somethign bad happened \n");
+                            continue;
+                        }
+
+                        t_last = t_now;
+                        // }
+
+                        printf("run the interference\n");
+                        // run the inference
+                        {
+                            whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+                            printf("run whisper_full_default_params\n");
+
+                            wparams.print_progress = false;
+                            wparams.print_special = params.print_special;
+                            wparams.print_realtime = false;
+                            wparams.print_timestamps = !params.no_timestamps;
+                            wparams.translate = params.translate;
+                            wparams.no_context = true;
+                            wparams.single_segment = !use_vad;
+                            wparams.max_tokens = params.max_tokens;
+                            wparams.language = params.language.c_str();
+                            wparams.n_threads = params.n_threads;
+
+                            wparams.audio_ctx = params.audio_ctx;
+                            wparams.speed_up = params.speed_up;
+
+                            // disable temperature fallback
+                            wparams.temperature_inc = -1.0f;
+
+                            printf("params.no_context: %d\n", params.no_context);
+                            wparams.prompt_tokens = params.no_context ? nullptr : prompt_tokens.data();
+                            wparams.prompt_n_tokens = params.no_context ? 0 : prompt_tokens.size();
+
+                            printf("before whisper full\n");
+                            
+                            if (whisper_full(ctx, wparams, pcmf32.data(), pcmf32.size()) != 0)
+                            {
+                                fprintf(stderr, "failed to process audio\n");
+                                return;
+                            }
+
+                            printf("using whisper_full is created\n");
+
+                            // print result;
+                            {
+                      
+                                const int64_t t1 = (t_last - t_start).count() / 1000000;
+                                const int64_t t0 = std::max(0.0, t1 - pcmf32.size() * 1000.0 / WHISPER_SAMPLE_RATE);
+
+                                printf("\n");
+                                printf("### Transcription %d START | t0 = %d ms | t1 = %d ms\n", n_iter, (int)t0, (int)t1);
+                                printf("\n");
+                                // }
+
+                                const int n_segments = whisper_full_n_segments(ctx);
+                                for (int i = 0; i < n_segments; ++i)
+                                {
+                                    const char *text = whisper_full_get_segment_text(ctx, i);
+
+                                    progress.Send(text, 1);
+
+                                
+                                }
+
+                           
+                                printf("\n");
+                                printf("### Transcription %d END\n", n_iter);
+                              
+                            }
+
+                            ++n_iter;
+
+                        }
+
+            
+
+                    }
+                    printf("\nOUTSIDE OF WHIEL LOOP\n");
+                    audio.pause(); })
+            .detach();
+        // .join();
+
+        printf("\nDetached thread\n");
+
+        // whisper_print_timings(ctx);
+        // whisper_free(this.ctx);
+
+        // return Napi::Boolean::New(Env(), true);
     }
 
-    void OnError(const Error &e)
+    void OnError(const Error &e) override
     {
         HandleScope scope(Env());
         // Pass error onto JS, no data for other parameters
         Callback().Call({String::New(Env(), e.Message())});
+
+        // whisper_free(this.ctx);
     }
-    void OnOK()
+    void OnOK() override
     {
         HandleScope scope(Env());
         // Pass no error, give back original data
         Callback().Call({Env().Null(), String::New(Env(), "DONE in OnOK")});
+
+        // whisper_print_timings(ctx);
+        // whisper_free(this.ctx);
     }
-    void OnProgress(const uint32_t *data, size_t /* count */)
+    void OnProgress(const char *data, size_t count) override
     {
         HandleScope scope(Env());
         // Pass no error, no echo data, but do pass on the progress data
@@ -124,17 +303,9 @@ public:
         Callback().Call({Env().Null(), String::New(Env(), "Passing data")});
     }
 
-    // private:
+private:
+    Napi::ThreadSafeFunction tsfn;
 };
-
-void StopWorker(const Napi::CallbackInfo &info)
-{
-    // Napi::Env env = info.Env();
-    // MyWorker *worker = static_cast<MyWorker *>(info.Data());
-    // AsyncProgressWorker<uint32_t> *worker = static_cast<AsyncProgressWorker<uint32_t> *>(info.Data());
-    // worker->Stop();
-    should_stop = true;
-}
 
 Napi::Value MyFunction(const Napi::CallbackInfo &info)
 {
@@ -146,12 +317,11 @@ Napi::Value MyFunction(const Napi::CallbackInfo &info)
         return env.Null();
     }
 
-    whisper_params params;
-    params.keep_ms = 200;    // std::min(params.keep_ms, params.step_ms);
-    params.length_ms = 3000; // std::max(params.length_ms, params.step_ms);
-    params.no_timestamps = !use_vad;
-    params.no_context |= use_vad;
-    params.max_tokens = 0;
+    // params.keep_ms = 200;    // std::min(params.keep_ms, params.step_ms);
+    // params.length_ms = 3000; // std::max(params.length_ms, params.step_ms);
+    // params.no_timestamps = !use_vad;
+    // params.no_context |= use_vad;
+    // params.max_tokens = 0;
 
     Napi::Object whisper_params = info[0].As<Napi::Object>();
     std::string language = whisper_params.Get("language").As<Napi::String>();
@@ -160,10 +330,17 @@ Napi::Value MyFunction(const Napi::CallbackInfo &info)
 
     Napi::Function callback = info[1].As<Napi::Function>();
 
-    params.language = language;
-    params.model = model;
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        callback,
+        "Callback",
+        0, // Unlimited queue
+        1);
 
-    MyWorker *worker = new MyWorker(callback);
+    // params.language = language;
+    // params.model = model;
+
+    MyWorker *worker = new MyWorker(callback, tsfn);
     // Napi::AsyncProgressWorker *async_worker = static_cast<Napi::AsyncProgressWorker *>(worker);
     worker->Queue();
     // Napi::ObjectReference *objRef = new Napi::ObjectReference(env, Napi::Persistent(info.This()));

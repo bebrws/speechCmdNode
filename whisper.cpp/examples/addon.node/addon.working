@@ -24,23 +24,6 @@ please write me c++ node add on example code  that returns a function which take
 #include <cmath>
 #include <cstdint>
 
-//  500 -> 00:05.000
-// 6000 -> 01:00.000
-std::string to_timestamp(int64_t t)
-{
-    int64_t sec = t / 100;
-    int64_t msec = t - sec * 100;
-    int64_t min = sec / 60;
-    sec = sec - min * 60;
-
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%02d:%02d.%03d", (int)min, (int)sec, (int)msec);
-
-    return std::string(buf);
-}
-
-// command-line parameters
-
 struct whisper_params
 {
     int32_t n_threads = std::min(4, (int32_t)std::thread::hardware_concurrency());
@@ -148,6 +131,7 @@ const int n_new_line = !use_vad ? std::max(1, 10000 / 3000 - 1) : 1; // number o
 
 Napi::Value StartThread(const Napi::CallbackInfo &info)
 {
+    
     Napi::Env env = info.Env();
 
     whisper_params params;
