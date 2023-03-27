@@ -1,0 +1,26 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "build-addon",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "build-addon",
+			"detail": "pushd whisper.cpp; npx cmake-js compile -T whisper-addon -B Release -a arm64; popd",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			}
+		},
+		{
+			"type": "npm",
+			"script": "runjs",
+			"problemMatcher": [],
+			"label": "runjs",
+			"detail": "node index.js",
+			"options": {
+				"cwd": "${workspaceFolder}/"
+			}
+		}
+	]
+}

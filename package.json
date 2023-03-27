@@ -4,9 +4,11 @@
   "description": "",
   "main": "index.mjs",
   "scripts": {
-    "run": "node index.mjs",
-    "build-whisper-alone": "pushd whisper.cpp; npx cmake-js compile -T whisper-addon -B Release -a arm64; popd",
-    "build-whisper": "pushd whisper.cpp; npx cmake-js compile -B Release -a arm64; popd"
+    "runjs": "node index.js",
+    "runmjs": "node index.mjs",
+    "build-addon": "pushd whisper.cpp; npx cmake-js compile -T whisper-addon -B Release -a arm64; popd",
+    "build-all-whisper": "pushd whisper.cpp; npx cmake-js compile -B Release -a arm64; popd",
+    "clean-build": "rm -rf whisper.cpp/build; pushd whisper.cpp; npx cmake-js compile -T whisper-addon -B Release -a arm64; popd"
   },
   "keywords": [],
   "author": "",
